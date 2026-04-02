@@ -1,8 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
+import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
 
 export async function POST(req: NextRequest) {
   try {
+    const { userId } = await auth();
+
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const { title, description, source, url, imageUrl, category, aiSummary } =
       await req.json();
 
@@ -14,7 +21,12 @@ export async function POST(req: NextRequest) {
     }
 
     const article = await prisma.savedArticle.upsert({
-      where: { url },
+      where: {
+        userId_url: {
+          userId,
+          url,
+        },
+      },
       update: {
         title,
         description,
@@ -24,6 +36,7 @@ export async function POST(req: NextRequest) {
         aiSummary,
       },
       create: {
+        userId,
         title,
         description,
         source,
@@ -45,7 +58,14 @@ export async function POST(req: NextRequest) {
 
 export async function GET() {
   try {
+    const { userId } = await auth();
+
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const articles = await prisma.savedArticle.findMany({
+      where: { userId },
       orderBy: { createdAt: "desc" },
     });
 
@@ -60,6 +80,12 @@ export async function GET() {
 
 export async function DELETE(req: NextRequest) {
   try {
+    const { userId } = await auth();
+
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const { url } = await req.json();
 
     if (!url) {
@@ -70,38 +96,18 @@ export async function DELETE(req: NextRequest) {
     }
 
     await prisma.savedArticle.delete({
-      where: { url },
-    });
-
-async function handleUnsave(article: Article) {
-  setSaving(article.url);
-
-  try {
-    const res = await fetch("/api/save", {
-      method: "DELETE",
-      headers: {
-        "Content-Type": "application/json",
+      where: {
+        userId_url: {
+          userId,
+          url,
+        },
       },
-      body: JSON.stringify({ url: article.url }),
     });
 
-    if (res.ok) {
-      setSaved((prev) => {
-        const next = new Set(prev);
-        next.delete(article.url);
-        return next;
-      });
-    }
-  } catch {
-    // optional: toast error
-  } finally {
-    setSaving(null);
-  }
-}
     return NextResponse.json({ success: true }, { status: 200 });
   } catch {
     return NextResponse.json(
-      { error: "Failed to unsave article" },
+      { error: "Failed to delete article" },
       { status: 500 }
     );
   }
