@@ -21,7 +21,7 @@ export default function LibraryPage() {
   const [loading, setLoading] = useState(true);
   const [removing, setRemoving] = useState<string | null>(null);
 
-  const { isLoaded, isSignedIn } = useAuth();
+  const { isLoaded, isSignedIn, userId } = useAuth();
 
   useEffect(() => {
     if (!isLoaded) return;
@@ -32,17 +32,28 @@ export default function LibraryPage() {
       return;
     }
 
-    fetch("/api/save")
+    fetch("/api/save", {
+      headers: {
+        "x-user-id": userId ?? "",
+      },
+    })
       .then((res) => {
-        if (!res.ok) throw new Error("Failed to fetch saved articles");
+        if (!res.ok) {
+          return res.json().then((errorData) => {
+            throw new Error(errorData?.error || "Failed to fetch saved articles");
+          });
+        }
         return res.json();
       })
       .then((data) => {
         setArticles(data || []);
         setLoading(false);
       })
-      .catch(() => setLoading(false));
-  }, [isLoaded, isSignedIn]);
+      .catch((error) => {
+        console.error("/api/save library fetch error:", error);
+        setLoading(false);
+      });
+  }, [isLoaded, isSignedIn, userId]);
 
   async function handleUnsave(url: string) {
     setRemoving(url);
@@ -52,6 +63,7 @@ export default function LibraryPage() {
         method: "DELETE",
         headers: {
           "Content-Type": "application/json",
+          "x-user-id": userId ?? "",
         },
         body: JSON.stringify({ url }),
       });

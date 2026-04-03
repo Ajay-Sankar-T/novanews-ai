@@ -7,7 +7,7 @@ Conceptually, `app/` is:
 
 - The **presentation layer**: React components, layouts, and styling.
 - The **edge/API gateway**: Route handlers that wrap external services (News API, LLM API) and internal data access (Prisma + Postgres). [clerk](https://clerk.com/docs/reference/nextjs/app-router/route-handlers)
-- The **auth surface**: Pages that consume the Clerk context established by the root layout and guarded by `middleware.ts`. [clerk](https://clerk.com/nextjs-authentication)
+- The **auth surface**: Pages that consume the Clerk context established by the root layout, with route-level guards in API handlers and UI conditions. [clerk](https://clerk.com/nextjs-authentication)
 
 The goal is to keep all “web‑facing” behavior close together while delegating deeper persistence concerns to Prisma and Neon.
 
@@ -327,7 +327,7 @@ On mount:
   }
   ```
 
-This is UI‑level protection. The real security is enforced by `middleware.ts` on `/library` and `/api/save`, which uses `auth.protect()` to ensure only authenticated users can reach these endpoints. [clerk](https://clerk.com/docs/reference/nextjs/clerk-middleware)
+This is UI‑level protection; backend routes now enforce auth in `app/api/save/route.ts` via Clerk `auth()` and `userId` checks, so only authorized users can access saved items. [clerk](https://clerk.com/docs/reference/nextjs/app-router/route-handlers)
 
 #### 3.2.2 Data fetching
 
@@ -466,8 +466,8 @@ This is the key connector between:
 Although this README is scoped to `app/`, it’s useful to see how this folder depends on other parts of the repo:
 
 - **`middleware.ts` (root):**
-  - Uses `clerkMiddleware` to enforce `auth.protect()` on `/library` and `/api/save`. [clerk](https://clerk.com/docs/reference/nextjs/clerk-middleware)
-  - `app/library/page.tsx` and `app/api/save/route.ts` assume they will only see signed‑in users because of this.
+  - Removed: global route middleware is no longer used.
+  - Auth checks are now enforced inside API route handlers via custom token/header user scoping.
 
 - **`prisma/schema.prisma`:**
   - Defines the `SavedArticle` model that `/api/save` queries.

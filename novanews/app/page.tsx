@@ -40,7 +40,7 @@ export default function HomePage() {
   const [saved, setSaved] = useState<Set<string>>(new Set());
   const [saving, setSaving] = useState<string | null>(null);
 
-  const { isLoaded, isSignedIn } = useAuth();
+  const { isLoaded, isSignedIn, userId } = useAuth();
 
   useEffect(() => {
     if (!isLoaded) return;
@@ -50,18 +50,26 @@ export default function HomePage() {
       return;
     }
 
-    fetch("/api/save")
+    fetch("/api/save", {
+      headers: {
+        "x-user-id": userId ?? "",
+      },
+    })
       .then((res) => {
-        if (!res.ok) throw new Error("Failed to fetch saved articles");
+        if (!res.ok) {
+          return res.json().then((errorData) => {
+            throw new Error(errorData?.error || `Failed to fetch saved articles (${res.status})`);
+          });
+        }
         return res.json();
       })
       .then((data: SavedArticle[]) => {
         setSaved(new Set(data.map((a) => a.url)));
       })
-      .catch(() => {
-        // ignore preload errors for now
+      .catch((error) => {
+        console.error("init saved articles error:", error);
       });
-  }, [isLoaded, isSignedIn]);
+  }, [isLoaded, isSignedIn, userId]);
 
   useEffect(() => {
     setLoading(true);
@@ -148,6 +156,7 @@ export default function HomePage() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          "x-user-id": userId ?? "",
         },
         body: JSON.stringify({
           title: article.title,
@@ -160,15 +169,21 @@ export default function HomePage() {
         }),
       });
 
-      if (res.ok) {
-        setSaved((prev) => {
-          const next = new Set(prev);
-          next.add(article.url);
-          return next;
-        });
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => null);
+        const message = errorData?.error || `Save failed (status ${res.status})`;
+        alert(message);
+        return;
       }
-    } catch {
-      // optional toast later
+
+      setSaved((prev) => {
+        const next = new Set(prev);
+        next.add(article.url);
+        return next;
+      });
+    } catch (error) {
+      console.error("handleSave error:", error);
+      alert("Failed to save article. Check console/app logs.");
     } finally {
       setSaving(null);
     }
@@ -184,19 +199,26 @@ export default function HomePage() {
         method: "DELETE",
         headers: {
           "Content-Type": "application/json",
+          "x-user-id": userId ?? "",
         },
         body: JSON.stringify({ url: article.url }),
       });
 
-      if (res.ok) {
-        setSaved((prev) => {
-          const next = new Set(prev);
-          next.delete(article.url);
-          return next;
-        });
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => null);
+        const message = errorData?.error || `Delete failed (status ${res.status})`;
+        alert(message);
+        return;
       }
-    } catch {
-      // optional toast later
+
+      setSaved((prev) => {
+        const next = new Set(prev);
+        next.delete(article.url);
+        return next;
+      });
+    } catch (error) {
+      console.error("handleUnsave error:", error);
+      alert("Failed to remove saved article. Check console/app logs.");
     } finally {
       setSaving(null);
     }

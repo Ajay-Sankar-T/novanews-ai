@@ -33,7 +33,7 @@ It sits on top of:
    - Empty library
    - Populated library
 
-This route is also **server‑protected** by `middleware.ts` using `clerkMiddleware` and `auth.protect()`, so unauthenticated users are redirected at the edge before this component even renders. [clerk](https://clerk.com/docs/reference/nextjs/clerk-middleware)
+This route is no longer guarded by `middleware.ts`; route-level auth is enforced directly in `app/api/save/route.ts`, with a custom request header auth fallback instead of Clerk middleware.
 
 ***
 
@@ -266,8 +266,8 @@ Although this readme lives inside `app/library/`, this page interacts heavily wi
   - All queries are scoped by `userId` obtained via `auth()`, ensuring per‑user privacy. [clerk](https://clerk.com/docs/nextjs/guides/users/reading)
 
 - **`middleware.ts` (project root)**
-  - Uses `clerkMiddleware` and `createRouteMatcher` to call `auth.protect()` on `/library(.*)` and `/api/save(.*)`. [stackoverflow](https://stackoverflow.com/questions/78134090/clerk-and-next-js-authentication-middleware-code-isnt-protecting-my-route-dash)
-  - Ensures unauthenticated access never sees this route or its API.
+  - Removed: this project no longer uses global middleware for auth protection.
+  - `app/library/page.tsx` and `app/api/save/route.ts` rely on explicit Clerk auth guards (`auth()` in API routes, `useAuth()` in UI).
 
 - **`prisma/schema.prisma`**
   - Defines `SavedArticle` (fields like `userId`, `title`, `url`, `aiSummary`, `createdAt`).
